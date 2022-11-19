@@ -1,4 +1,4 @@
-module xk6-grpc
+module github.com/shlsky/xk6-grpc
 
 go 1.15
 
