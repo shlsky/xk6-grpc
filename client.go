@@ -40,8 +40,7 @@ type Client struct {
 
 func init() {
 
-	client := Client{}
-	modules.Register("k6/x/grpc", &client)
+	modules.Register("k6/x/grpc", new(Client))
 }
 
 // Load will parse the given proto files and make the file descriptors available to request.
