@@ -41,7 +41,7 @@ type Client struct {
 
 func init() {
 
-	modules.Register("k6/x/grpc", new(Client))
+	modules.Register("k6/x/grpc", New())
 }
 
 type (
