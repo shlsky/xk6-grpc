@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shlsky/xk6-grpc/xgrpc_conn"
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
-	"go.k6.io/k6/lib/netext/grpcext"
 	"go.k6.io/k6/lib/types"
 	"go.k6.io/k6/metrics"
 
@@ -35,7 +35,7 @@ import (
 // Client represents a gRPC client that can be used to make RPC requests
 type Client struct {
 	mds  map[string]protoreflect.MethodDescriptor
-	conn *grpcext.Conn
+	conn *xgrpc_conn.Conn
 	vu   modules.VU
 	addr string
 }
@@ -242,7 +242,7 @@ func (c *Client) Connect(addr string, params map[string]interface{}) (bool, erro
 		return false, fmt.Errorf("invalid grpc.connect() parameters: %w", err)
 	}
 
-	opts := grpcext.DefaultOptions(c.vu)
+	opts := xgrpc_conn.DefaultOptions(c.vu)
 
 	var tcred credentials.TransportCredentials
 	if !p.IsPlaintext {
@@ -272,7 +272,7 @@ func (c *Client) Connect(addr string, params map[string]interface{}) (bool, erro
 	}
 
 	c.addr = addr
-	c.conn, err = grpcext.Dial(ctx, addr, opts...)
+	c.conn, err = xgrpc_conn.Dial(ctx, addr, opts...)
 	if err != nil {
 		return false, err
 	}
@@ -297,7 +297,7 @@ func (c *Client) Invoke(
 	method string,
 	req goja.Value,
 	params goja.Value,
-) (*grpcext.Response, error) {
+) (*xgrpc_conn.Response, error) {
 	state := c.vu.State()
 	if state == nil {
 		return nil, common.NewInitContextError("invoking RPC methods in the init context is not supported")
@@ -349,13 +349,17 @@ func (c *Client) Invoke(
 		p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagName, method)
 	}
 
-	reqmsg := grpcext.Request{
+	reqmsg := xgrpc_conn.Request{
 		MethodDescriptor: methodDesc,
 		Message:          b,
 		TagsAndMeta:      &p.TagsAndMeta,
 	}
 
-	return c.conn.Invoke(ctx, method, md, reqmsg)
+	r, e := c.conn.Invoke(ctx, method, md, reqmsg)
+	r.GRPCReqDuration = state.BuiltinMetrics.GRPCReqDuration
+
+	return r, e
+
 }
 
 // Close will close the client gRPC connection
