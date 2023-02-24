@@ -34,6 +34,10 @@ type Request struct {
 	Message          []byte
 }
 
+type RequestTime struct {
+	Duration *float64
+}
+
 // Response represents a gRPC response.
 type Response struct {
 	Message  interface{}
@@ -41,7 +45,7 @@ type Response struct {
 	Headers  map[string][]string
 	Trailers map[string][]string
 	Status   codes.Code
-	GRPCReqDuration *metrics.Metric
+	Duration *float64
 }
 
 type clientConnCloser interface {
@@ -114,6 +118,8 @@ func (c *Conn) Invoke(
 
 	ctx = withRPCState(ctx, &rpcState{tagsAndMeta: req.TagsAndMeta})
 
+	context.WithValue(ctx, grpcRequestTime, &RequestTime{})
+
 	resp := dynamicpb.NewMessage(req.MethodDescriptor.Output())
 	header, trailer := metadata.New(nil), metadata.New(nil)
 
@@ -126,6 +132,7 @@ func (c *Conn) Invoke(
 	response := Response{
 		Headers:  header,
 		Trailers: trailer,
+		Duration: getGrpcRequestTime(ctx).Duration,
 	}
 
 	marshaler := protojson.MarshalOptions{EmitUnpopulated: true}
@@ -198,6 +205,7 @@ func (statsHandler) TagRPC(ctx context.Context, _ *grpcstats.RPCTagInfo) context
 func (h statsHandler) HandleRPC(ctx context.Context, stat grpcstats.RPCStats) {
 	state := h.vu.State()
 	stateRPC := getRPCState(ctx) //nolint:ifshort
+	grpcRequestTime := getGrpcRequestTime(ctx)
 
 	// If the request is done by the reflection handler then the tags will be
 	// nil. In this case, we can reuse the VU.State's Tags.
@@ -220,6 +228,8 @@ func (h statsHandler) HandleRPC(ctx context.Context, stat grpcstats.RPCStats) {
 			stateRPC.tagsAndMeta.SetSystemTagOrMeta(metrics.TagStatus, strconv.Itoa(int(status.Code(s.Error))))
 		}
 
+		ss := metrics.D(s.EndTime.Sub(s.BeginTime))
+		grpcRequestTime.Duration = &ss
 		metrics.PushIfNotDone(ctx, state.Samples, metrics.Sample{
 			TimeSeries: metrics.TimeSeries{
 				Metric: state.BuiltinMetrics.GRPCReqDuration,
@@ -307,6 +317,7 @@ func formatPayload(payload interface{}) string {
 type contextKey string
 
 var ctxKeyRPCState = contextKey("rpcState") //nolint:gochecknoglobals
+var grpcRequestTime = contextKey("grpc_request_time")
 
 type rpcState struct {
 	tagsAndMeta *metrics.TagsAndMeta
@@ -322,4 +333,11 @@ func getRPCState(ctx context.Context) *rpcState {
 		return nil
 	}
 	return v.(*rpcState) //nolint: forcetypeassert
+}
+func getGrpcRequestTime(ctx context.Context) *RequestTime {
+	v := ctx.Value(grpcRequestTime)
+	if v == nil {
+		return nil
+	}
+	return v.(*RequestTime) //nolint: forcetypeassert
 }

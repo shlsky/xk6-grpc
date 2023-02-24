@@ -315,7 +315,6 @@ func (c *Client) Invoke(
 	}
 
 	r, e := c.conn.Invoke(ctx, method, md, reqmsg)
-	r.GRPCReqDuration = state.BuiltinMetrics.GRPCReqDuration
 
 	return r, e
 
