@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/jhump/protoreflect/desc/protoparse"
 	"google.golang.org/grpc/codes"
 	"io"
 	"strings"
@@ -118,48 +117,8 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 		Named: mi.exports,
 	}
 }
-
 // Load will parse the given proto files and make the file descriptors available to request.
-func (c *Client) Load(importPaths []string, filenames ...string) ([]MethodInfo, error) {
-	if c.vu.State() != nil {
-		return nil, errors.New("load must be called in the init context")
-	}
-
-	initEnv := c.vu.InitEnv()
-	if initEnv == nil {
-		return nil, errors.New("missing init environment")
-	}
-
-	// If no import paths are specified, use the current working directory
-	if len(importPaths) == 0 {
-		importPaths = append(importPaths, initEnv.CWD.Path)
-	}
-
-	parser := protoparse.Parser{
-		ImportPaths:      importPaths,
-		InferImportPaths: false,
-		Accessor: protoparse.FileAccessor(func(filename string) (io.ReadCloser, error) {
-			absFilePath := initEnv.GetAbsFilePath(filename)
-			return initEnv.FileSystems["file"].Open(absFilePath)
-		}),
-	}
-
-	fds, err := parser.ParseFiles(filenames...)
-	if err != nil {
-		return nil, err
-	}
-
-	fdset := &descriptorpb.FileDescriptorSet{}
-
-	seen := make(map[string]struct{})
-	for _, fd := range fds {
-		fdset.File = append(fdset.File, walkFileDescriptors(seen, fd)...)
-	}
-	return c.convertToMethodInfo(fdset)
-}
-
-// Load will parse the given proto files and make the file descriptors available to request.
-func (c *Client) LoadDescriptorBase64(descriptor string) ([]MethodInfo, error) {
+func (c *Client) Load(descriptor string) ([]MethodInfo, error) {
 	if c.vu.State() != nil {
 		return nil, errors.New("load must be called in the init context")
 	}
