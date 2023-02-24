@@ -117,8 +117,7 @@ func (c *Conn) Invoke(
 	}
 
 	ctx = withRPCState(ctx, &rpcState{tagsAndMeta: req.TagsAndMeta})
-
-	context.WithValue(ctx, grpcRequestTimeCtxKey, &RequestTime{Duration: nil})
+	ctx = withRequestTime(ctx, &RequestTime{Duration: nil})
 
 	resp := dynamicpb.NewMessage(req.MethodDescriptor.Output())
 	header, trailer := metadata.New(nil), metadata.New(nil)
@@ -333,6 +332,10 @@ func getRPCState(ctx context.Context) *rpcState {
 		return nil
 	}
 	return v.(*rpcState) //nolint: forcetypeassert
+}
+
+func withRequestTime(ctx context.Context, requestTime *RequestTime) context.Context {
+	return context.WithValue(ctx, grpcRequestTimeCtxKey, requestTime)
 }
 func getGrpcRequestTime(ctx context.Context) *RequestTime {
 	v := ctx.Value(grpcRequestTimeCtxKey)
