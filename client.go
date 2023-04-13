@@ -39,6 +39,9 @@ type Client struct {
 	addr string
 }
 
+type Util struct {
+}
+
 func init() {
 
 	modules.Register("k6/x/grpc", New())
@@ -75,6 +78,7 @@ func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 	}
 
 	mi.exports["Client"] = mi.NewClient
+	mi.exports["Util"] = mi.NewUtil
 	mi.defineConstants()
 	return mi
 }
@@ -83,6 +87,12 @@ func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 func (mi *ModuleInstance) NewClient(call goja.ConstructorCall) *goja.Object {
 	rt := mi.vu.Runtime()
 	return rt.ToValue(&Client{vu: mi.vu}).ToObject(rt)
+}
+
+// NewUtil is the JS constructor for the grpc Util.
+func (mi *ModuleInstance) NewUtil(call goja.ConstructorCall) *goja.Object {
+	rt := mi.vu.Runtime()
+	return rt.ToValue(&Util{}).ToObject(rt)
 }
 
 // defineConstants defines the constant variables of the module.
@@ -117,6 +127,17 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 		Named: mi.exports,
 	}
 }
+
+// Getnano 获取纳秒
+func (c *Util) Getnano() int64 {
+	return time.Now().UnixNano()
+}
+
+// Getmicro 获取微妙
+func (c *Util) Getmicro() int64 {
+	return time.Now().UnixMicro()
+}
+
 // Load will parse the given proto files and make the file descriptors available to request.
 func (c *Client) Load(descriptor string) ([]MethodInfo, error) {
 	if c.vu.State() != nil {
