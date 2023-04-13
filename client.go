@@ -138,6 +138,16 @@ func (c *Util) Getmicro() int64 {
 	return time.Now().UnixMicro()
 }
 
+// Getnano 获取纳秒
+func (c *Util) GetnanoStr() string {
+	return string(time.Now().UnixNano())
+}
+
+// Getmicro 获取微妙
+func (c *Util) GetmicroStr() int64 {
+	return time.Now().UnixMicro()
+}
+
 // Load will parse the given proto files and make the file descriptors available to request.
 func (c *Client) Load(descriptor string) ([]MethodInfo, error) {
 	if c.vu.State() != nil {
