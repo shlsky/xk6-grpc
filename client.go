@@ -128,23 +128,23 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 	}
 }
 
-// Getnano 获取纳秒
-func (c *Util) Getnano() int64 {
+// GetNano 获取纳秒
+func (c *Util) GetNano() int64 {
 	return time.Now().UnixNano()
 }
 
-// Getmicro 获取微妙
-func (c *Util) Getmicro() int64 {
+// GetMicro 获取微妙
+func (c *Util) GetMicro() int64 {
 	return time.Now().UnixMicro()
 }
 
-// Getnano 获取纳秒
-func (c *Util) GetnanoStr() string {
+// GetNanoStr 获取纳秒字符串
+func (c *Util) GetNanoStr() string {
 	return string(time.Now().UnixNano())
 }
 
-// Getmicro 获取微妙
-func (c *Util) GetmicroStr() int64 {
+// GetMicroStr 获取微妙字符串
+func (c *Util) GetMicroStr() int64 {
 	return time.Now().UnixMicro()
 }
 
