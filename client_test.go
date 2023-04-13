@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"runtime"
@@ -41,6 +42,13 @@ type testcase struct {
 	vuString   codeBlock // runs in the vu context
 }
 
+func TestUtil(t *testing.T) {
+	u := Util{}
+	for i := 0; i < 100; i++ {
+		fmt.Println(u.GetNanoStr())
+	}
+
+}
 func TestClient(t *testing.T) {
 	t.Parallel()
 

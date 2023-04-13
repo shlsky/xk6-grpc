@@ -8,6 +8,7 @@ import (
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"google.golang.org/grpc/codes"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -140,12 +141,12 @@ func (c *Util) GetMicro() int64 {
 
 // GetNanoStr 获取纳秒字符串
 func (c *Util) GetNanoStr() string {
-	return string(time.Now().UnixNano())
+	return strconv.FormatInt(time.Now().UnixNano(), 10)
 }
 
 // GetMicroStr 获取微妙字符串
-func (c *Util) GetMicroStr() int64 {
-	return time.Now().UnixMicro()
+func (c *Util) GetMicroStr() string {
+	return strconv.FormatInt(time.Now().UnixMicro(), 10)
 }
 
 // Load will parse the given proto files and make the file descriptors available to request.
