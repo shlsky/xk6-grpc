@@ -1,16 +1,16 @@
 module github.com/shlsky/xk6-grpc
 
-go 1.18
+go 1.20
 
 require (
 	github.com/dop251/goja v0.0.0-20231027120936-b396bb4c349d
-	github.com/golang/protobuf v1.5.4
+	github.com/golang/protobuf v1.5.3
 	github.com/jhump/protoreflect v1.15.4
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	go.k6.io/k6 v0.49.0
 	google.golang.org/grpc v1.60.0
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.31.1-0.20231027082548-f4a6c1f6e5c1
 )
 
 require (
