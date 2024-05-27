@@ -346,7 +346,7 @@ func (c *Client) Invoke(
 		TagsAndMeta:      &p.TagsAndMeta,
 	}
 
-	r, e := c.conn.Invoke(ctx, method, md, reqmsg)
+	r, e := c.conn.Invoke(ctx, state.Options, method, md, reqmsg)
 
 	return r, e
 

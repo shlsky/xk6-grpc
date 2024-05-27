@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go.k6.io/k6/lib"
 	"net"
 	"strconv"
 	"strings"
@@ -94,6 +95,7 @@ func (c *Conn) Reflect(ctx context.Context) (*descriptorpb.FileDescriptorSet, er
 // Invoke executes a unary gRPC request.
 func (c *Conn) Invoke(
 	ctx context.Context,
+	options lib.Options,
 	url string,
 	md metadata.MD,
 	req Request,
