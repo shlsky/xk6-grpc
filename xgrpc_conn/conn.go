@@ -169,10 +169,12 @@ func (c *Conn) Invoke(
 		// {"x":6,"y":4}
 		// rather than the desired:
 		// {"x":6,"y":4,"z":0}
-		raw, _ := marshaler.Marshal(resp)
-		msg := make(map[string]interface{})
-		_ = json.Unmarshal(raw, &msg)
-		response.Message = msg
+		if !options.DiscardResponseBodies.Bool {
+			raw, _ := marshaler.Marshal(resp)
+			msg := make(map[string]interface{})
+			_ = json.Unmarshal(raw, &msg)
+			response.Message = msg
+		}
 	}
 	return &response, nil
 }
