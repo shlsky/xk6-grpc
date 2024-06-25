@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"google.golang.org/grpc/codes"
+	gresolver "google.golang.org/grpc/resolver"
 	"io"
 	"strconv"
 	"strings"
@@ -46,6 +47,9 @@ type Util struct {
 func init() {
 
 	modules.Register("k6/x/grpc", New())
+	modules.Register("k6/x/grpc_builder", NewNacosBuilder())
+
+	gresolver.Register(&realNacosBuilder)
 }
 
 type (
@@ -261,6 +265,56 @@ func (c *Client) Connect(addr string, params map[string]interface{}) (bool, erro
 	if p.MaxSendSize > 0 {
 		opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(int(p.MaxSendSize))))
 	}
+
+	opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`))
+
+	c.addr = addr
+	c.conn, err = xgrpc_conn.Dial(ctx, addr, opts...)
+	if err != nil {
+		return false, err
+	}
+
+	if !p.UseReflectionProtocol {
+		return true, nil
+	}
+	fdset, err := c.conn.Reflect(ctx)
+	if err != nil {
+		return false, err
+	}
+	_, err = c.convertToMethodInfo(fdset)
+	if err != nil {
+		return false, fmt.Errorf("can't convert method info: %w", err)
+	}
+
+	return true, err
+}
+
+func (c *Client) ConnectV1(addr string, params map[string]interface{}) (bool, error) {
+
+	p, err := c.parseConnectParams(params)
+	if err != nil {
+		return false, fmt.Errorf("invalid grpc.connect() parameters: %w", err)
+	}
+
+	var opts []grpc.DialOption
+	var tcred credentials.TransportCredentials
+
+	tcred = insecure.NewCredentials()
+
+	opts = append(opts, grpc.WithTransportCredentials(tcred))
+
+	ctx, cancel := context.WithTimeout(c.vu.Context(), p.Timeout)
+	defer cancel()
+
+	if p.MaxReceiveSize > 0 {
+		opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(int(p.MaxReceiveSize))))
+	}
+
+	if p.MaxSendSize > 0 {
+		opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(int(p.MaxSendSize))))
+	}
+
+	opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`))
 
 	c.addr = addr
 	c.conn, err = xgrpc_conn.Dial(ctx, addr, opts...)

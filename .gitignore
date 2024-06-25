@@ -1,1 +1,4 @@
 .idea/
+connection.log
+k6
+nacos/
