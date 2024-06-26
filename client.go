@@ -6,11 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"google.golang.org/grpc/codes"
-	gresolver "google.golang.org/grpc/resolver"
+	"github.com/jhump/protoreflect/desc/protoparse"
 	"io"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shlsky/xk6-grpc/xgrpc_conn"
@@ -37,55 +36,8 @@ import (
 type Client struct {
 	mds  map[string]protoreflect.MethodDescriptor
 	conn *xgrpc_conn.Conn
-	vu   modules.VU
 	addr string
-}
-
-type Util struct {
-}
-
-func init() {
-
-	modules.Register("k6/x/grpc", New())
-	modules.Register("k6/x/grpc_builder", NewNacosBuilder())
-
-	gresolver.Register(&realNacosBuilder)
-}
-
-type (
-	// RootModule is the global module instance that will create module
-	// instances for each VU.
-	RootModule struct{}
-
-	// ModuleInstance represents an instance of the GRPC module for every VU.
-	ModuleInstance struct {
-		vu      modules.VU
-		exports map[string]interface{}
-	}
-)
-
-var (
-	_ modules.Module   = &RootModule{}
-	_ modules.Instance = &ModuleInstance{}
-)
-
-// New returns a pointer to a new RootModule instance.
-func New() *RootModule {
-	return &RootModule{}
-}
-
-// NewModuleInstance implements the modules.Module interface to return
-// a new instance for each VU.
-func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
-	mi := &ModuleInstance{
-		vu:      vu,
-		exports: make(map[string]interface{}),
-	}
-
-	mi.exports["Client"] = mi.NewClient
-	mi.exports["Util"] = mi.NewUtil
-	mi.defineConstants()
-	return mi
+	vu   modules.VU
 }
 
 // NewClient is the JS constructor for the grpc Client.
@@ -94,63 +46,46 @@ func (mi *ModuleInstance) NewClient(call goja.ConstructorCall) *goja.Object {
 	return rt.ToValue(&Client{vu: mi.vu}).ToObject(rt)
 }
 
-// NewUtil is the JS constructor for the grpc Util.
-func (mi *ModuleInstance) NewUtil(call goja.ConstructorCall) *goja.Object {
-	rt := mi.vu.Runtime()
-	return rt.ToValue(&Util{}).ToObject(rt)
-}
+var connectionPool = make(map[string]*xgrpc_conn.Conn)
+var lck sync.Mutex
 
-// defineConstants defines the constant variables of the module.
-func (mi *ModuleInstance) defineConstants() {
-	rt := mi.vu.Runtime()
-	mustAddCode := func(name string, code codes.Code) {
-		mi.exports[name] = rt.ToValue(code)
+// Load will parse the given proto files and make the file descriptors available to request.
+func (c *Client) LoadProto(importPaths []string, filenames ...string) ([]MethodInfo, error) {
+	if c.vu.State() != nil {
+		return nil, errors.New("load must be called in the init context")
 	}
 
-	mustAddCode("StatusOK", codes.OK)
-	mustAddCode("StatusCanceled", codes.Canceled)
-	mustAddCode("StatusUnknown", codes.Unknown)
-	mustAddCode("StatusInvalidArgument", codes.InvalidArgument)
-	mustAddCode("StatusDeadlineExceeded", codes.DeadlineExceeded)
-	mustAddCode("StatusNotFound", codes.NotFound)
-	mustAddCode("StatusAlreadyExists", codes.AlreadyExists)
-	mustAddCode("StatusPermissionDenied", codes.PermissionDenied)
-	mustAddCode("StatusResourceExhausted", codes.ResourceExhausted)
-	mustAddCode("StatusFailedPrecondition", codes.FailedPrecondition)
-	mustAddCode("StatusAborted", codes.Aborted)
-	mustAddCode("StatusOutOfRange", codes.OutOfRange)
-	mustAddCode("StatusUnimplemented", codes.Unimplemented)
-	mustAddCode("StatusInternal", codes.Internal)
-	mustAddCode("StatusUnavailable", codes.Unavailable)
-	mustAddCode("StatusDataLoss", codes.DataLoss)
-	mustAddCode("StatusUnauthenticated", codes.Unauthenticated)
-}
-
-// Exports returns the exports of the grpc module.
-func (mi *ModuleInstance) Exports() modules.Exports {
-	return modules.Exports{
-		Named: mi.exports,
+	initEnv := c.vu.InitEnv()
+	if initEnv == nil {
+		return nil, errors.New("missing init environment")
 	}
-}
 
-// GetNano 获取纳秒
-func (c *Util) GetNano() int64 {
-	return time.Now().UnixNano()
-}
+	// If no import paths are specified, use the current working directory
+	if len(importPaths) == 0 {
+		importPaths = append(importPaths, initEnv.CWD.Path)
+	}
 
-// GetMicro 获取微妙
-func (c *Util) GetMicro() int64 {
-	return time.Now().UnixMicro()
-}
+	parser := protoparse.Parser{
+		ImportPaths:      importPaths,
+		InferImportPaths: false,
+		Accessor: protoparse.FileAccessor(func(filename string) (io.ReadCloser, error) {
+			absFilePath := initEnv.GetAbsFilePath(filename)
+			return initEnv.FileSystems["file"].Open(absFilePath)
+		}),
+	}
 
-// GetNanoStr 获取纳秒字符串
-func (c *Util) GetNanoStr() string {
-	return strconv.FormatInt(time.Now().UnixNano(), 10)
-}
+	fds, err := parser.ParseFiles(filenames...)
+	if err != nil {
+		return nil, err
+	}
 
-// GetMicroStr 获取微妙字符串
-func (c *Util) GetMicroStr() string {
-	return strconv.FormatInt(time.Now().UnixMicro(), 10)
+	fdset := &descriptorpb.FileDescriptorSet{}
+
+	seen := make(map[string]struct{})
+	for _, fd := range fds {
+		fdset.File = append(fdset.File, walkFileDescriptors(seen, fd)...)
+	}
+	return c.convertToMethodInfo(fdset)
 }
 
 // Load will parse the given proto files and make the file descriptors available to request.
@@ -227,12 +162,13 @@ func (c *Client) LoadProtoset(protosetPath string) ([]MethodInfo, error) {
 
 // Connect is a block dial to the gRPC server at the given address (host:port)
 func (c *Client) Connect(addr string, params map[string]interface{}) (bool, error) {
+
 	state := c.vu.State()
 	if state == nil {
 		return false, common.NewInitContextError("connecting to a gRPC server in the init context is not supported")
 	}
 
-	p, err := c.parseConnectParams(params)
+	p, err := parseConnectParams(params)
 	if err != nil {
 		return false, fmt.Errorf("invalid grpc.connect() parameters: %w", err)
 	}
@@ -269,10 +205,32 @@ func (c *Client) Connect(addr string, params map[string]interface{}) (bool, erro
 	opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`))
 
 	c.addr = addr
-	c.conn, err = xgrpc_conn.Dial(ctx, addr, opts...)
+
+	var conn *xgrpc_conn.Conn = nil
+	if p.ShareConn {
+		if v, ok := connectionPool[addr]; ok {
+			conn = v
+		} else {
+			lck.Lock()
+			if vv, ok1 := connectionPool[addr]; !ok1 {
+				conn, err = xgrpc_conn.Dial(ctx, addr, opts...)
+				if err == nil {
+					connectionPool[addr] = conn
+				}
+			} else {
+				conn = vv
+			}
+			lck.Unlock()
+		}
+
+	} else {
+		conn, err = xgrpc_conn.Dial(ctx, addr, opts...)
+	}
+
 	if err != nil {
 		return false, err
 	}
+	c.conn = conn
 
 	if !p.UseReflectionProtocol {
 		return true, nil
@@ -291,7 +249,7 @@ func (c *Client) Connect(addr string, params map[string]interface{}) (bool, erro
 
 func (c *Client) ConnectV1(addr string, params map[string]interface{}) (bool, error) {
 
-	p, err := c.parseConnectParams(params)
+	p, err := parseConnectParams(params)
 	if err != nil {
 		return false, fmt.Errorf("invalid grpc.connect() parameters: %w", err)
 	}
@@ -403,7 +361,6 @@ func (c *Client) Invoke(
 	r, e := c.conn.Invoke(ctx, state.Options, method, md, reqmsg)
 
 	return r, e
-
 }
 
 // Close will close the client gRPC connection
@@ -543,15 +500,17 @@ type connectParams struct {
 	Timeout               time.Duration
 	MaxReceiveSize        int64
 	MaxSendSize           int64
+	ShareConn             bool
 }
 
-func (c *Client) parseConnectParams(raw map[string]interface{}) (connectParams, error) {
+func parseConnectParams(raw map[string]interface{}) (connectParams, error) {
 	params := connectParams{
 		IsPlaintext:           false,
 		UseReflectionProtocol: false,
 		Timeout:               time.Minute,
 		MaxReceiveSize:        0,
 		MaxSendSize:           0,
+		ShareConn:             false,
 	}
 	for k, v := range raw {
 		switch k {
@@ -560,6 +519,12 @@ func (c *Client) parseConnectParams(raw map[string]interface{}) (connectParams, 
 			params.IsPlaintext, ok = v.(bool)
 			if !ok {
 				return params, fmt.Errorf("invalid plaintext value: '%#v', it needs to be boolean", v)
+			}
+		case "shareConn":
+			var ok bool
+			params.ShareConn, ok = v.(bool)
+			if !ok {
+				return params, fmt.Errorf("invalid shareConn value: '%#v', it needs to be boolean", v)
 			}
 		case "timeout":
 			var err error

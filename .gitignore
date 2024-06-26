@@ -2,3 +2,4 @@
 connection.log
 k6
 nacos/
+grpc_local.js

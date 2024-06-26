@@ -1,10 +1,14 @@
 import grpc from 'k6/x/grpc';
 import nacos from "k6/x/nacos";
 import builder from 'k6/x/grpc_builder';
+import { check, sleep, group } from 'k6'
+import jsonpath from 'https://jslib.k6.io/jsonpath/1.0.2/index.js';
+
+
 
 export function setup() {
-    nacos.init("testNacos", "nacos.test.infra.ww5sawfyut0k.bitsvc.io", 8848, "nacos", "nacos", "byone-auto-test");
-    nacos.init("publicNacos", "nacos.test.infra.ww5sawfyut0k.bitsvc.io", 8848, "nacos", "nacos", "public");
+    nacos.init("testNacos", "nacos.io", 8848, "nacos", "nacos", "test");
+    nacos.init("publicNacos", "nacos.io", 8848, "nacos", "nacos", "public");
     builder.fillBuilder("testNacos", "")
 }
 
@@ -17,25 +21,19 @@ export const options = {
         scenarioCode92fb22b8775544cca7104c88c08e7c8e: {
             executor: 'constant-arrival-rate',
             // How long the test lasts
-            duration: '300s',
+            duration: '120s',
             // How many iterations per timeUnit
-            rate: 10,
+            rate: 100,
             // Start `rate` iterations per second
             timeUnit: '1s',
             // Pre-allocate VUs
-            preAllocatedVUs: 20,
+            preAllocatedVUs: 100,
             exec: 'scenarioExec0',
         }
     }
 }
 
 export function scenarioExec0() {
-    const addr = "10.110.65.20:9008";
-    //开启反射：reflect:true
-    // grpc_client_scenarioCode92fb22b8775544cca7104c88c08e7c8e_0.connect("nacos:///award-srv", {plaintext: true,timeout:'3s'});
-    // const response = grpc_client_scenarioCode92fb22b8775544cca7104c88c08e7c8e_0.invoke('grpc.health.v1.Health/Watch', {"service": "AwardingSrv"});
-    // console.log(response);
-
 
     if (__ITER == 0) {
         // grpc_client_scenarioCode92fb22b8775544cca7104c88c08e7c8e_0.connect("10.110.113.150:9205", {
@@ -43,14 +41,15 @@ export function scenarioExec0() {
         //     timeout: '3s'
         // });
 
-        grpc_client_scenarioCode92fb22b8775544cca7104c88c08e7c8e_0.connect("nacos:///byone.greeter.rpc.local", {
+        grpc_client_scenarioCode92fb22b8775544cca7104c88c08e7c8e_0.connect("nacos:///rpc.local", {
             plaintext: true,
+            shareConn: true,
             timeout: '10s'
         });
         console.log(__VU);
     }
 
-    const response = grpc_client_scenarioCode92fb22b8775544cca7104c88c08e7c8e_0.invoke('com.bybit.infra.test.bsoatest.Greeter/SayHello', {
+    const res0 = grpc_client_scenarioCode92fb22b8775544cca7104c88c08e7c8e_0.invoke('com.Greeter/SayHello', {
         "name": "haha"
     }, {
         metadata: {
@@ -58,7 +57,5 @@ export function scenarioExec0() {
         },
         timeout: '5s'
     });
-
-
-    console.log(__VU,response);
+    console.log(res0.message)
 }

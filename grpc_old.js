@@ -39,12 +39,11 @@ export const options = {
 }
 
 export function scenarioExec0() {
-    group('com.bybit.infra.test.bsoatest.Greeter/SayHello', function () {
+    group('Greeter/SayHello', function () {
         let SYS_TRACE_ID = gen_TraceId_SYS();
         if (__ITER == 0) {
-            grpc_client_scenarioCode38b8aa89aebc4123b9af94a85af25110_0.connect('10.110.113.150:9205', {plaintext: true});
+            grpc_client_scenarioCode38b8aa89aebc4123b9af94a85af25110_0.connect('127.0.0.1', {plaintext: true});
         }
-        const res0 = grpc_client_scenarioCode38b8aa89aebc4123b9af94a85af25110_0.invoke('com.bybit.infra.test.bsoatest.Greeter/SayHello', {"name": "a"}, {metadata: {'traceparent': '00-' + SYS_TRACE_ID + '-' + gen_SpanId_SYS() + '-01'}});
-        // file.appendString('/home/sys_su/pts/k6/6979/report/logs.log', SYS_TRACE_ID + ',' + 'com.bybit.infra.test.bsoatest.Greeter/SayHello' + ',' + res0.duration + ',' + JSON.stringify(res0.error) + '\n')
+        const res0 = grpc_client_scenarioCode38b8aa89aebc4123b9af94a85af25110_0.invoke('Greeter/SayHello', {"name": "a"}, {metadata: {'traceparent': '00-' + SYS_TRACE_ID + '-' + gen_SpanId_SYS() + '-01'}});
     });
 }
