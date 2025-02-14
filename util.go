@@ -1,7 +1,7 @@
 package grpc
 
 import (
-	"github.com/dop251/goja"
+	"github.com/grafana/sobek"
 	"strconv"
 	"time"
 )
@@ -10,7 +10,7 @@ type Util struct {
 }
 
 // NewUtil is the JS constructor for the grpc Util.
-func (mi *ModuleInstance) NewUtil(call goja.ConstructorCall) *goja.Object {
+func (mi *ModuleInstance) NewUtil(_ sobek.ConstructorCall) *sobek.Object {
 	rt := mi.vu.Runtime()
 	return rt.ToValue(&Util{}).ToObject(rt)
 }

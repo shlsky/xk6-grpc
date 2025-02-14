@@ -18,7 +18,7 @@ import (
 	"go.k6.io/k6/lib/types"
 	"go.k6.io/k6/metrics"
 
-	"github.com/dop251/goja"
+	"github.com/grafana/sobek"
 	"github.com/jhump/protoreflect/desc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -41,7 +41,7 @@ type Client struct {
 }
 
 // NewClient is the JS constructor for the grpc Client.
-func (mi *ModuleInstance) NewClient(call goja.ConstructorCall) *goja.Object {
+func (mi *ModuleInstance) NewClient(_ sobek.ConstructorCall) *sobek.Object {
 	rt := mi.vu.Runtime()
 	return rt.ToValue(&Client{vu: mi.vu}).ToObject(rt)
 }
@@ -298,8 +298,8 @@ func (c *Client) ConnectV1(addr string, params map[string]interface{}) (bool, er
 // Invoke creates and calls a unary RPC by fully qualified method name
 func (c *Client) Invoke(
 	method string,
-	req goja.Value,
-	params goja.Value,
+	req sobek.Value,
+	params sobek.Value,
 ) (*xgrpc_conn.Response, error) {
 	state := c.vu.State()
 	if state == nil {
@@ -374,7 +374,7 @@ func (c *Client) Close() error {
 	return err
 }
 
-// MethodInfo holds information on any parsed method descriptors that can be used by the goja VM
+// MethodInfo holds information on any parsed method descriptors that can be used by the  VM
 type MethodInfo struct {
 	Package         string
 	Service         string
@@ -446,12 +446,12 @@ type invokeParams struct {
 	Timeout     time.Duration
 }
 
-func (c *Client) parseInvokeParams(paramsVal goja.Value) (*invokeParams, error) {
+func (c *Client) parseInvokeParams(paramsVal sobek.Value) (*invokeParams, error) {
 	result := &invokeParams{
 		Timeout:     1 * time.Minute,
 		TagsAndMeta: c.vu.State().Tags.GetCurrentValues(),
 	}
-	if paramsVal == nil || goja.IsUndefined(paramsVal) || goja.IsNull(paramsVal) {
+	if paramsVal == nil || sobek.IsUndefined(paramsVal) || sobek.IsNull(paramsVal) {
 		return result, nil
 	}
 	rt := c.vu.Runtime()
