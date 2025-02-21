@@ -9,10 +9,10 @@ require (
 	github.com/grafana/sobek v0.0.0-20241024150027-d91f02b05e9b
 	github.com/jhump/protoreflect v1.17.0
 	github.com/nacos-group/nacos-sdk-go v1.1.4
-	github.com/shlsky/xk6-nacos v0.0.6
+	github.com/shlsky/xk6-nacos v0.0.7
 	github.com/sirupsen/logrus v1.9.3
 	go.k6.io/k6 v0.55.0
-	google.golang.org/grpc v1.69.4
+	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.36.3
 )
 
